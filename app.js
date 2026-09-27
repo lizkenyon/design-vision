@@ -29,6 +29,7 @@
   let roomFilter = 'all';
   let focus = null; // { ids: [...], i }
   let themeOpen = null;
+  let lightbox = null; // { items: [{src, alt, caption}], i }
   let roomOpen = null;
   let saving = false;
   let saveError = '';
@@ -275,7 +276,7 @@
   }
 
   function renderFocus() {
-    document.documentElement.style.overflow = focus || themeOpen != null ? 'hidden' : '';
+    lockScroll();
     if (!focus) { focusEl.innerHTML = themeOpen != null ? renderTheme() : ''; return; }
     const id = focus.ids[focus.i];
     const p = pinById(id);
@@ -296,6 +297,43 @@
         <p class="hint">Keys: 1 Love · 2 Maybe · 3 Cut · ← → move · Esc close. Setting a status moves to the next pin.</p>
       </div></div>`;
     focusEl.querySelectorAll('textarea.f').forEach(autosize);
+  }
+
+  // ---------- lightbox ----------
+  const LB_SELECTOR = '.glance img, .also img, .insp img';
+  let lbEl = null;
+  function lockScroll() {
+    document.documentElement.style.overflow = focus || themeOpen != null || lightbox ? 'hidden' : '';
+  }
+  function openLightbox(imgEl) {
+    const group = imgEl.closest('.glance, .also, .insp');
+    const imgs = [...group.querySelectorAll('img')];
+    lightbox = {
+      items: imgs.map(im => {
+        const cap = im.closest('figure') && im.closest('figure').querySelector('figcaption');
+        return { src: im.getAttribute('src'), alt: im.alt, caption: cap ? cap.textContent : '' };
+      }),
+      i: Math.max(0, imgs.indexOf(imgEl))
+    };
+    renderLightbox();
+  }
+  function closeLightbox() { lightbox = null; renderLightbox(); }
+  function moveLightbox(d) {
+    if (!lightbox) return;
+    lightbox.i = (lightbox.i + d + lightbox.items.length) % lightbox.items.length;
+    renderLightbox();
+  }
+  function renderLightbox() {
+    if (!lightbox) { if (lbEl) { lbEl.remove(); lbEl = null; } lockScroll(); return; }
+    if (!lbEl) { lbEl = document.createElement('div'); lbEl.className = 'lightbox'; lbEl.setAttribute('role', 'dialog'); lbEl.setAttribute('aria-modal', 'true'); lbEl.setAttribute('aria-label', 'Image viewer'); document.body.appendChild(lbEl); }
+    const it = lightbox.items[lightbox.i];
+    const many = lightbox.items.length > 1;
+    lbEl.innerHTML = `<button class="lb-close" data-act="lb-close" aria-label="Close">×</button>
+      ${many ? `<button class="lb-arrow prev" data-act="lb-nav" data-d="-1" aria-label="Previous image">‹</button><button class="lb-arrow next" data-act="lb-nav" data-d="1" aria-label="Next image">›</button>` : ''}
+      <figure class="lb-fig" data-act="lb-close"><img src="${esc(it.src)}" alt="${esc(it.alt)}">
+      ${it.caption || many ? `<figcaption>${esc(it.caption)}${many ? `<span class="lb-count">${lightbox.i + 1} / ${lightbox.items.length}</span>` : ''}</figcaption>` : ''}</figure>`;
+    lockScroll();
+    const btn = lbEl.querySelector('.lb-close'); if (btn) btn.focus();
   }
 
   // ---------- shell ----------
@@ -388,6 +426,14 @@
   });
 
   document.addEventListener('click', e => {
+    if (lightbox) {
+      const lb = e.target.closest('[data-act^="lb-"]');
+      if (lb && lb.dataset.act === 'lb-nav') moveLightbox(+lb.dataset.d);
+      else if ((lb && (e.target === lb || lb.tagName === 'BUTTON')) || e.target === lbEl) closeLightbox();
+      return;
+    }
+    const pic = e.target.closest(LB_SELECTOR);
+    if (pic && !e.target.closest('button')) { e.preventDefault(); openLightbox(pic); return; }
     const b = e.target.closest('[data-act]');
     if (!b || b.tagName === 'SELECT' || b.tagName === 'INPUT') return;
     const a = b.dataset.act;
@@ -445,6 +491,12 @@
   });
 
   document.addEventListener('keydown', e => {
+    if (lightbox) {
+      if (e.key === 'Escape') { e.preventDefault(); closeLightbox(); }
+      else if (e.key === 'ArrowRight') { e.preventDefault(); moveLightbox(1); }
+      else if (e.key === 'ArrowLeft') { e.preventDefault(); moveLightbox(-1); }
+      return;
+    }
     if (!focus && themeOpen != null && e.key === 'Escape') { themeOpen = null; renderFocus(); return; }
     if (!focus) return;
     const typing = /^(TEXTAREA|INPUT|SELECT)$/.test(e.target.tagName);
