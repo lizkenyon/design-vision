@@ -29,6 +29,7 @@
   let roomFilter = 'all';
   let focus = null; // { ids: [...], i }
   let themeOpen = null;
+  let listingOpen = false;
   let lightbox = null; // { items: [{src, alt, caption}], i }
   let roomOpen = null;
   let saving = false;
@@ -200,6 +201,15 @@
       ${shown.length ? `<div class="insp" style="margin-top:24px">${shown.map(captioned).join('')}</div>` : ''}`;
   }
 
+  const LISTING_PREVIEW = 6;
+  function listingBlock() {
+    const photos = S.brief.listingPhotos || [];
+    if (!photos.length) return '';
+    const more = photos.length > LISTING_PREVIEW;
+    return `<div class="listing">${photos.map((p, i) => `<figure class="g"${!listingOpen && i >= LISTING_PREVIEW ? ' hidden' : ''}><img src="${esc(p.src)}" alt="Listing photo ${i + 1} of ${photos.length}" loading="lazy" width="${p.w}" height="${p.h}"></figure>`).join('')}</div>
+      ${more ? `<button class="btn ghost addrow" data-act="listing-toggle" aria-expanded="${listingOpen}">${listingOpen ? 'Show fewer' : `Show all ${photos.length} photos`}</button>` : ''}`;
+  }
+
   function renderBrief() {
     const b = S.brief;
     const sections = [
@@ -210,6 +220,7 @@
       ['avoid', 'Not for us', 'Please steer away from', listBlock('avoid', 'x', 'Add something to avoid', 'e.g. Glossy finishes', 'Optional detail')],
       ['style', 'Style', 'The look we are after', styleBlock()],
       ['inspiration', 'All images', 'Everything we saved, by room, with notes', inspirationBlock()],
+      ['house', 'The house today', 'Listing photos from when we bought it', listingBlock()],
       ['contact', 'Contact', 'How to reach us', E() ? area('brief.contact', b.contact, '', 'Names, email, phone, best times to reach you') : (b.contact || '').trim() ? `<div class="prose">${paras(b.contact)}</div>` : '']
     ].filter(s => s[3]);
 
@@ -300,13 +311,13 @@
   }
 
   // ---------- lightbox ----------
-  const LB_SELECTOR = '.glance img, .also img, .insp img';
+  const LB_SELECTOR = '.glance img, .also img, .insp img, .listing img';
   let lbEl = null;
   function lockScroll() {
     document.documentElement.style.overflow = focus || themeOpen != null || lightbox ? 'hidden' : '';
   }
   function openLightbox(imgEl) {
-    const group = imgEl.closest('.glance, .also, .insp');
+    const group = imgEl.closest('.glance, .also, .insp, .listing');
     const imgs = [...group.querySelectorAll('img')];
     lightbox = {
       items: imgs.map(im => {
@@ -481,6 +492,7 @@
       case 'theme-close': themeOpen = null; renderFocus(); break;
       case 'theme-backdrop': if (e.target === b) { themeOpen = null; renderFocus(); } break;
       case 'theme-nav': themeOpen += +b.dataset.d; renderFocus(); focusEl.querySelector('.sheet').scrollTop = 0; break;
+      case 'listing-toggle': listingOpen = !listingOpen; render(); if (!listingOpen) document.getElementById('house').scrollIntoView(); break;
       case 'room-open': roomOpen = roomOpen === b.dataset.room ? null : b.dataset.room; render(); break;
       case 'save': save(); break;
       case 'discard': S = JSON.parse(savedJSON); store.del(DRAFT_KEY); focus = null; render(); break;

@@ -435,8 +435,13 @@ details.more .prose { margin-top: 12px; }
 .chip:disabled { opacity: .4; cursor: default; }
 .detail-card .f.sm { margin-top: 6px; }
 
+/* ---------- Listing photos ---------- */
+.listing { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+.listing .g { margin: 0; aspect-ratio: 3 / 2; overflow: hidden; border-radius: 2px; background: var(--line); }
+.listing .g img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
 /* ---------- Lightbox ---------- */
-.glance img, .also img, .insp img { cursor: zoom-in; }
+.glance img, .also img, .insp img, .listing img { cursor: zoom-in; }
 .lightbox {
   position: fixed; inset: 0; z-index: 60; background: rgba(24,21,19,.97);
   display: grid; place-items: center;
